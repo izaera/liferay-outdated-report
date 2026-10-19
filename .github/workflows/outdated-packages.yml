@@ -1,0 +1,80 @@
+name: Outdated packages
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  cancel-in-progress: false
+  group: pages
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v4
+        with:
+          path: report
+
+      - name: Check out the manifests of liferay-portal
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          path: liferay-portal
+          ref: master
+          repository: liferay/liferay-portal
+          sparse-checkout: |
+            /.github/CODEOWNERS
+            package.json
+            yarn.lock
+          sparse-checkout-cone-mode: false
+
+      - name: Check out node-scripts
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          path: node-scripts
+          ref: ${{ vars.NODE_SCRIPTS_REF || 'LPD-XXXXX' }}
+          repository: ${{ vars.NODE_SCRIPTS_REPOSITORY || 'izaera/liferay-portal' }}
+          sparse-checkout: |
+            /modules/frontend-sdk/node-scripts/
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate the reports
+        run: |
+          report/scripts/generate_reports.sh \
+            liferay-portal \
+            node-scripts/modules/frontend-sdk/node-scripts \
+            site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the reports
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    permissions:
+      id-token: write
+      pages: write
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
