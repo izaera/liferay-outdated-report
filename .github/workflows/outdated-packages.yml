@@ -17,12 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out this repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: report
 
       - name: Check out the manifests of liferay-portal
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           filter: blob:none
           path: liferay-portal
@@ -35,7 +35,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Check out node-scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           filter: blob:none
           path: node-scripts
@@ -46,7 +46,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -58,10 +58,10 @@ jobs:
             site
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload the reports
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -77,4 +77,4 @@ jobs:
     steps:
       - id: deployment
         name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
