@@ -3,6 +3,7 @@ name: Outdated packages
 on:
   schedule:
     - cron: "30 5 * * *"
+      timezone: 'Europe/Madrid'
   workflow_dispatch:
 
 concurrency:
