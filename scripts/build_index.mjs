@@ -14,6 +14,8 @@ const commit = execFileSync('git', ['-C', liferayPortalDir, 'rev-parse', 'HEAD']
 	encoding: 'utf8',
 }).trim();
 
+const getOwners = readCodeowners(liferayPortalDir);
+
 const reports = fs
 	.readdirSync(siteDir)
 	.filter((file) => file.endsWith('.html') && file !== 'index.html')
@@ -33,6 +35,10 @@ const reports = fs
 			file,
 			majors: outdatedNodes.filter((node) => node.diff === 'major').length,
 			name: file.replace(/\.html$/, ''),
+			owners:
+				file === 'modules.html'
+					? null
+					: getOwners(`workspaces/${file.replace(/\.html$/, '')}`),
 			outdated: outdatedNodes.length,
 			packages: data.packageCount,
 			roots: data.roots.length,
@@ -57,10 +63,61 @@ const escape = (text) =>
 			({'"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;'})[character]
 	);
 
+// modules is shared by every team, and a workspace that CODEOWNERS does not
+// list has no owner
+
+function describeOwners(owners) {
+	if (!owners) {
+		return '';
+	}
+
+	return owners.length
+		? owners.map(escape).join(', ')
+		: '<span class="muted">unowned</span>';
+}
+
+/**
+ * Reads .github/CODEOWNERS, which maps repository paths (no globs) to teams,
+ * and returns a function that gives the owners of a path from its most
+ * specific listed ancestor.
+ */
+function readCodeowners(repositoryDir) {
+	const owners = new Map();
+
+	const content = fs.readFileSync(
+		path.join(repositoryDir, '.github', 'CODEOWNERS'),
+		'utf8'
+	);
+
+	for (const line of content.split(/\r?\n/)) {
+		const [pattern, ...teams] = line.trim().split(/\s+/);
+
+		if (pattern && !pattern.startsWith('#')) {
+			owners.set(pattern.replace(/^\/|\/$/g, ''), teams);
+		}
+	}
+
+	return (relativePath) => {
+		while (relativePath) {
+			if (owners.has(relativePath)) {
+				return owners.get(relativePath);
+			}
+
+			relativePath = relativePath.substring(
+				0,
+				Math.max(relativePath.lastIndexOf('/'), 0)
+			);
+		}
+
+		return [];
+	};
+}
+
 const rows = reports
 	.map(
 		(report) => `<tr>
 <td><a href="${escape(report.file)}">${escape(report.name)}</a></td>
+<td>${describeOwners(report.owners)}</td>
 <td class="number">${report.packages}</td>
 <td class="number">${report.outdated}</td>
 <td class="number">${report.majors}</td>
@@ -147,6 +204,10 @@ tbody tr:nth-child(odd) {
 	background: var(--row);
 }
 
+.muted {
+	color: var(--muted);
+}
+
 .number {
 	text-align: right;
 }
@@ -165,6 +226,7 @@ ${failed}
 <thead>
 <tr>
 <th>Lockfile</th>
+<th>Team</th>
 <th class="number">Locked packages</th>
 <th class="number">Outdated</th>
 <th class="number">Major behind</th>
